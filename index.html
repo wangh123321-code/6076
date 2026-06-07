@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猫咪动作捕捉3D可视化系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="top-bar">
+            <h1>🐱 猫咪动作捕捉3D可视化系统</h1>
+            <div class="mode-selector">
+                <button id="singleModeBtn" class="mode-btn active">单视图模式</button>
+                <button id="compareModeBtn" class="mode-btn">对比模式</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="panel">
+                    <h3>数据选择</h3>
+                    <div class="data-selector">
+                        <label>猫咪编号:</label>
+                        <select id="catSelect"></select>
+                        <label>动作类型:</label>
+                        <select id="actionSelect"></select>
+                        <label>数据文件:</label>
+                        <select id="fileSelect"></select>
+                        <button id="loadDataBtn" class="primary-btn">加载数据</button>
+                        <input type="file" id="customFileInput" accept=".csv" style="display: none;">
+                        <button id="customFileBtn" class="secondary-btn">上传CSV文件</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>显示设置</h3>
+                    <div class="display-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showSkeleton" checked> 显示骨骼
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showJoints" checked> 显示关节球
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showTrajectory"> 显示运动轨迹
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showGrid" checked> 显示地面网格
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showLabels"> 显示关节标签
+                        </label>
+                    </div>
+                    <div class="trajectory-options" id="trajectoryOptions" style="display: none;">
+                        <label>轨迹长度:</label>
+                        <input type="range" id="trailLength" min="10" max="200" value="60">
+                        <span id="trailLengthValue">60</span>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="colorByLimb" checked> 按肢体着色
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showFrontLegs" checked> 前腿轨迹
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showBackLegs" checked> 后腿轨迹
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showTail" checked> 尾巴轨迹
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showHead" checked> 头部轨迹
+                        </label>
+                    </div>
+                </div>
+
+                <div class="panel" id="comparePanel" style="display: none;">
+                    <h3>对比设置</h3>
+                    <div class="compare-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="syncPlayback" checked> 同步播放
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showDiff" checked> 显示差异
+                        </label>
+                    </div>
+                    <div class="data-selector">
+                        <label>右侧猫咪:</label>
+                        <select id="catSelect2"></select>
+                        <label>右侧动作:</label>
+                        <select id="actionSelect2"></select>
+                        <label>右侧文件:</label>
+                        <select id="fileSelect2"></select>
+                        <button id="loadDataBtn2" class="primary-btn">加载右侧数据</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>视图控制</h3>
+                    <div class="view-controls">
+                        <button id="resetViewBtn" class="secondary-btn">重置视图</button>
+                        <button id="frontViewBtn" class="secondary-btn">正视图</button>
+                        <button id="sideViewBtn" class="secondary-btn">侧视图</button>
+                        <button id="topViewBtn" class="secondary-btn">俯视图</button>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="autoRotate"> 自动旋转
+                        </label>
+                    </div>
+                </div>
+
+                <div class="panel info-panel">
+                    <h3>数据信息</h3>
+                    <div id="dataInfo" class="info-content">
+                        <p>请加载动作捕捉数据</p>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="viewport-area">
+                <div class="viewport-container" id="viewportContainer">
+                    <div class="viewport-wrapper" id="viewport1">
+                        <div class="viewport-header">
+                            <span id="viewport1Title">视图 1</span>
+                            <span id="viewport1Info" class="viewport-info"></span>
+                        </div>
+                        <canvas id="glCanvas1"></canvas>
+                    </div>
+                    <div class="viewport-wrapper" id="viewport2" style="display: none;">
+                        <div class="viewport-header">
+                            <span id="viewport2Title">视图 2</span>
+                            <span id="viewport2Info" class="viewport-info"></span>
+                        </div>
+                        <canvas id="glCanvas2"></canvas>
+                    </div>
+                </div>
+
+                <div class="playback-controls">
+                    <div class="timeline-container">
+                        <div class="timeline-info">
+                            <span id="currentFrame">0</span> / <span id="totalFrames">0</span>
+                            <span class="time-display" id="currentTime">0.00s</span> / <span class="time-display" id="totalTime">0.00s</span>
+                        </div>
+                        <div class="timeline">
+                            <div class="timeline-track" id="timelineTrack">
+                                <div class="timeline-progress" id="timelineProgress"></div>
+                                <div class="timeline-handle" id="timelineHandle"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="control-buttons">
+                        <button id="prevFrameBtn" class="control-btn" title="上一帧">⏮</button>
+                        <button id="playPauseBtn" class="control-btn play-btn" title="播放/暂停">▶</button>
+                        <button id="nextFrameBtn" class="control-btn" title="下一帧">⏭</button>
+                        <div class="speed-control">
+                            <label>速度:</label>
+                            <select id="speedSelect">
+                                <option value="0.25">0.25x</option>
+                                <option value="0.5">0.5x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="2">2x</option>
+                                <option value="4">4x</option>
+                                <option value="8">8x</option>
+                            </select>
+                        </div>
+                        <div class="fps-display">
+                            FPS: <span id="fpsDisplay">0</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
