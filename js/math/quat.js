@@ -201,5 +201,123 @@ export const quat = {
         out[2] = az + t * (b[2] - az);
         out[3] = aw + t * (b[3] - aw);
         return this.normalize(out, out);
+    },
+
+    toEuler: function(out, q, order = 'ZXY') {
+        const x = q[0], y = q[1], z = q[2], w = q[3];
+        const orderUpper = order.toUpperCase();
+
+        if (orderUpper === 'ZXY') {
+            const sinY = 2 * (w * y - x * z);
+            if (Math.abs(sinY) >= 1 - 1e-6) {
+                out[0] = 2 * Math.atan2(x, w);
+                out[1] = Math.PI / 2 * Math.sign(sinY);
+                out[2] = 0;
+            } else {
+                out[0] = Math.atan2(2 * (y * z + w * x), 1 - 2 * (x * x + y * y));
+                out[1] = Math.asin(Math.max(-1, Math.min(1, sinY)));
+                out[2] = Math.atan2(2 * (x * y + w * z), 1 - 2 * (y * y + z * z));
+            }
+        } else if (orderUpper === 'XYZ') {
+            const sinY = 2 * (w * y + x * z);
+            if (Math.abs(sinY) >= 1 - 1e-6) {
+                out[0] = 2 * Math.atan2(x, w);
+                out[1] = Math.PI / 2 * Math.sign(sinY);
+                out[2] = 0;
+            } else {
+                out[0] = Math.atan2(2 * (w * x - y * z), 1 - 2 * (x * x + y * y));
+                out[1] = Math.asin(Math.max(-1, Math.min(1, sinY)));
+                out[2] = Math.atan2(2 * (w * z - x * y), 1 - 2 * (y * y + z * z));
+            }
+        } else if (orderUpper === 'YXZ') {
+            const sinX = 2 * (w * x - y * z);
+            if (Math.abs(sinX) >= 1 - 1e-6) {
+                out[0] = Math.PI / 2 * Math.sign(sinX);
+                out[1] = 2 * Math.atan2(y, w);
+                out[2] = 0;
+            } else {
+                out[0] = Math.asin(Math.max(-1, Math.min(1, sinX)));
+                out[1] = Math.atan2(2 * (x * z + w * y), 1 - 2 * (x * x + y * y));
+                out[2] = Math.atan2(2 * (x * y + w * z), 1 - 2 * (x * x + z * z));
+            }
+        } else if (orderUpper === 'ZYX') {
+            const sinY = -2 * (w * y + x * z);
+            if (Math.abs(sinY) >= 1 - 1e-6) {
+                out[0] = 2 * Math.atan2(x, w);
+                out[1] = -Math.PI / 2 * Math.sign(sinY);
+                out[2] = 0;
+            } else {
+                out[0] = Math.atan2(2 * (y * z - w * x), 1 - 2 * (x * x + y * y));
+                out[1] = Math.asin(Math.max(-1, Math.min(1, sinY)));
+                out[2] = Math.atan2(2 * (x * y - w * z), 1 - 2 * (y * y + z * z));
+            }
+        } else {
+            throw new Error(`Unsupported rotation order: ${order}`);
+        }
+
+        return out;
+    },
+
+    fromEulerWithOrder: function(out, x, y, z, order = 'ZXY') {
+        const orderUpper = order.toUpperCase();
+        this.identity(out);
+
+        if (orderUpper === 'ZXY') {
+            this.rotateZ(out, out, z);
+            this.rotateX(out, out, x);
+            this.rotateY(out, out, y);
+        } else if (orderUpper === 'XYZ') {
+            this.rotateX(out, out, x);
+            this.rotateY(out, out, y);
+            this.rotateZ(out, out, z);
+        } else if (orderUpper === 'YXZ') {
+            this.rotateY(out, out, y);
+            this.rotateX(out, out, x);
+            this.rotateZ(out, out, z);
+        } else if (orderUpper === 'ZYX') {
+            this.rotateZ(out, out, z);
+            this.rotateY(out, out, y);
+            this.rotateX(out, out, x);
+        } else {
+            throw new Error(`Unsupported rotation order: ${order}`);
+        }
+
+        return out;
+    },
+
+    fromMat4: function(out, m) {
+        const m00 = m[0], m01 = m[1], m02 = m[2];
+        const m10 = m[4], m11 = m[5], m12 = m[6];
+        const m20 = m[8], m21 = m[9], m22 = m[10];
+
+        const trace = m00 + m11 + m22;
+
+        if (trace > 0) {
+            const s = 0.5 / Math.sqrt(trace + 1);
+            out[3] = 0.25 / s;
+            out[0] = (m21 - m12) * s;
+            out[1] = (m02 - m20) * s;
+            out[2] = (m10 - m01) * s;
+        } else if (m00 > m11 && m00 > m22) {
+            const s = 2 * Math.sqrt(1 + m00 - m11 - m22);
+            out[3] = (m21 - m12) / s;
+            out[0] = 0.25 * s;
+            out[1] = (m01 + m10) / s;
+            out[2] = (m02 + m20) / s;
+        } else if (m11 > m22) {
+            const s = 2 * Math.sqrt(1 + m11 - m00 - m22);
+            out[3] = (m02 - m20) / s;
+            out[0] = (m01 + m10) / s;
+            out[1] = 0.25 * s;
+            out[2] = (m12 + m21) / s;
+        } else {
+            const s = 2 * Math.sqrt(1 + m22 - m00 - m11);
+            out[3] = (m10 - m01) / s;
+            out[0] = (m02 + m20) / s;
+            out[1] = (m12 + m21) / s;
+            out[2] = 0.25 * s;
+        }
+
+        return this.normalize(out, out);
     }
 };

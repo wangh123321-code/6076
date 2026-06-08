@@ -28,8 +28,50 @@
                         <label>数据文件:</label>
                         <select id="fileSelect"></select>
                         <button id="loadDataBtn" class="primary-btn">加载数据</button>
-                        <input type="file" id="customFileInput" accept=".csv" style="display: none;">
-                        <button id="customFileBtn" class="secondary-btn">上传CSV文件</button>
+                        <input type="file" id="customFileInput" accept=".csv,.bvh" style="display: none;">
+                        <button id="customFileBtn" class="secondary-btn">上传文件</button>
+                        <button id="exportBVHBtn" class="secondary-btn">导出BVH</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>BVH转换工具</h3>
+                    <div class="bvh-options">
+                        <label>坐标系:</label>
+                        <select id="targetUpAxis">
+                            <option value="z-up" selected>Z轴向上 (本系统)</option>
+                            <option value="y-up">Y轴向上 (BVH标准)</option>
+                        </select>
+                        <label>单位:</label>
+                        <select id="targetUnit">
+                            <option value="meters" selected>米 (本系统)</option>
+                            <option value="centimeters">厘米 (BVH标准)</option>
+                        </select>
+                        <label>旋转顺序:</label>
+                        <select id="rotationOrder">
+                            <option value="ZXY" selected>ZXY (BVH标准)</option>
+                            <option value="XYZ">XYZ</option>
+                            <option value="YXZ">YXZ</option>
+                            <option value="ZYX">ZYX</option>
+                        </select>
+                        <label>骨骼映射:</label>
+                        <select id="mappingType">
+                            <option value="motionBuilder" selected>MotionBuilder</option>
+                            <option value="vicon">Vicon</option>
+                            <option value="generic">通用</option>
+                        </select>
+                        <button id="validateBtn" class="secondary-btn">验证转换精度</button>
+                        <button id="batchConvertBtn" class="secondary-btn">批量转换</button>
+                        <input type="file" id="batchFileInput" accept=".csv,.bvh" multiple style="display: none;">
+                        <button id="downloadLogBtn" class="secondary-btn">下载日志</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>格式对比</h3>
+                    <div class="compare-format-options">
+                        <button id="formatCompareBtn" class="primary-btn">格式对比页面</button>
+                        <p class="hint">同时加载CSV和BVH，叠加显示差异</p>
                     </div>
                 </div>
 

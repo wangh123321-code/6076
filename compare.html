@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>格式对比 - CSV vs BVH</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .compare-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .compare-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        .compare-header h2 {
+            margin: 0;
+            color: #fff;
+            font-size: 18px;
+        }
+        .back-btn {
+            padding: 8px 16px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .back-btn:hover {
+            background: #3a8eef;
+        }
+        .compare-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .compare-sidebar {
+            width: 320px;
+            background: #1a1a2e;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #333;
+        }
+        .compare-viewport {
+            flex: 1;
+            position: relative;
+            background: #0a0a15;
+        }
+        .file-load-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .file-load-section h4 {
+            margin: 0 0 10px 0;
+            color: #fff;
+            font-size: 14px;
+        }
+        .file-load-section.csv-section {
+            border-left: 4px solid #4a9eff;
+        }
+        .file-load-section.bvh-section {
+            border-left: 4px solid #ff6b6b;
+        }
+        .file-name {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+            word-break: break-all;
+        }
+        .file-name.loaded {
+            color: #4ade80;
+        }
+        .display-options {
+            margin-top: 20px;
+        }
+        .overlay-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 10;
+        }
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #fff;
+            font-size: 12px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        .legend-color.csv {
+            background: #4a9eff;
+        }
+        .legend-color.bvh {
+            background: #ff6b6b;
+        }
+        .legend-color.diff {
+            background: #ffd93d;
+        }
+        .error-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 10;
+            color: #fff;
+            font-size: 12px;
+            min-width: 200px;
+        }
+        .error-display h4 {
+            margin: 0 0 10px 0;
+            color: #ffd93d;
+        }
+        .error-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .error-value.high {
+            color: #ff6b6b;
+        }
+        .error-value.low {
+            color: #4ade80;
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        .slider-container label {
+            display: block;
+            color: #ccc;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .slider-container input[type="range"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="compare-container">
+        <div class="compare-header">
+            <h2>📊 格式对比 - CSV vs BVH</h2>
+            <button class="back-btn" onclick="window.close()">← 返回</button>
+        </div>
+        <div class="compare-content">
+            <div class="compare-sidebar">
+                <div class="file-load-section csv-section">
+                    <h4>CSV 数据</h4>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                    <button id="loadCSVBtn" class="primary-btn" style="width: 100%;">加载CSV文件</button>
+                    <div id="csvFileName" class="file-name">未加载</div>
+                </div>
+                
+                <div class="file-load-section bvh-section">
+                    <h4>BVH 数据</h4>
+                    <input type="file" id="bvhFileInput" accept=".bvh" style="display: none;">
+                    <button id="loadBVHBtn" class="primary-btn" style="width: 100%;">加载BVH文件</button>
+                    <div id="bvhFileName" class="file-name">未加载</div>
+                </div>
+
+                <div class="panel">
+                    <h3>显示设置</h3>
+                    <div class="display-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showCSV" checked> 显示CSV (蓝色)
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showBVH" checked> 显示BVH (红色)
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showDifference" checked> 显示差异连线
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showGrid" checked> 显示网格
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="showLabels"> 显示关节标签
+                        </label>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label>差异线条粗细: <span id="diffLineWidthValue">2</span></label>
+                        <input type="range" id="diffLineWidth" min="1" max="8" value="2">
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label>误差阈值 (mm): <span id="errorThresholdValue">1</span></label>
+                        <input type="range" id="errorThreshold" min="0.1" max="10" step="0.1" value="1">
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>视图控制</h3>
+                    <div class="view-controls">
+                        <button id="resetViewBtn" class="secondary-btn" style="width: 100%; margin-bottom: 5px;">重置视图</button>
+                        <button id="frontViewBtn" class="secondary-btn" style="width: 100%; margin-bottom: 5px;">正视图</button>
+                        <button id="sideViewBtn" class="secondary-btn" style="width: 100%; margin-bottom: 5px;">侧视图</button>
+                        <button id="topViewBtn" class="secondary-btn" style="width: 100%;">俯视图</button>
+                    </div>
+                </div>
+
+                <div class="panel info-panel">
+                    <h3>统计信息</h3>
+                    <div id="statsInfo" class="info-content">
+                        <p>请加载两种格式的数据</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="compare-viewport">
+                <div class="overlay-controls">
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color csv"></div>
+                            <span>CSV (原始)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color bvh"></div>
+                            <span>BVH (转换)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color diff"></div>
+                            <span>位置差异</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="checkbox-label" style="color: #fff;">
+                            <input type="checkbox" id="syncPlayback" checked> 同步播放
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="error-display" id="errorDisplay" style="display: none;">
+                    <h4>⚠️ 实时误差</h4>
+                    <div class="error-row">
+                        <span>当前帧:</span>
+                        <span id="currentFrameNum">0</span>
+                    </div>
+                    <div class="error-row">
+                        <span>最大位置误差:</span>
+                        <span id="currentMaxError" class="error-value">0.000000</span>
+                    </div>
+                    <div class="error-row">
+                        <span>平均位置误差:</span>
+                        <span id="currentAvgError" class="error-value">0.000000</span>
+                    </div>
+                    <div class="error-row">
+                        <span>误差最大关节:</span>
+                        <span id="currentMaxJoint">-</span>
+                    </div>
+                    <div class="error-row">
+                        <span>超过阈值关节:</span>
+                        <span id="overThresholdCount">0</span>
+                    </div>
+                </div>
+                
+                <canvas id="compareCanvas"></canvas>
+            </div>
+        </div>
+        
+        <div class="playback-controls" style="margin: 0;">
+            <div class="timeline-container">
+                <div class="timeline-info">
+                    <span id="currentFrame">0</span> / <span id="totalFrames">0</span>
+                    <span class="time-display" id="currentTime">0.00s</span> / <span class="time-display" id="totalTime">0.00s</span>
+                </div>
+                <div class="timeline">
+                    <div class="timeline-track" id="timelineTrack">
+                        <div class="timeline-progress" id="timelineProgress"></div>
+                        <div class="timeline-handle" id="timelineHandle"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="control-buttons">
+                <button id="prevFrameBtn" class="control-btn" title="上一帧">⏮</button>
+                <button id="playPauseBtn" class="control-btn play-btn" title="播放/暂停">▶</button>
+                <button id="nextFrameBtn" class="control-btn" title="下一帧">⏭</button>
+                <div class="speed-control">
+                    <label>速度:</label>
+                    <select id="speedSelect">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="2">2x</option>
+                    </select>
+                </div>
+                <button id="exportReportBtn" class="control-btn" title="导出对比报告">📄 导出报告</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/compare.js"></script>
+</body>
+</html>

@@ -1,4 +1,6 @@
 import { CSVLoader } from '../data/CSVParser.js';
+import { BVHLoader } from '../data/BVHParser.js';
+import { ConversionValidator, BatchConverter, ConversionLogger } from '../data/ConversionValidator.js';
 import { AnimationPlayer } from '../animation/AnimationPlayer.js';
 import { Renderer } from '../webgl/Renderer.js';
 import { CameraController } from './CameraController.js';
@@ -11,6 +13,10 @@ export class App {
         this.isCompareMode = false;
         
         this.csvLoader = new CSVLoader();
+        this.bvhLoader = new BVHLoader();
+        this.conversionValidator = new ConversionValidator();
+        this.batchConverter = new BatchConverter();
+        this.conversionLogger = new ConversionLogger();
         
         this.player1 = new AnimationPlayer();
         this.player2 = new AnimationPlayer();
@@ -102,7 +108,17 @@ export class App {
             timelineTrack: document.getElementById('timelineTrack'),
             timelineProgress: document.getElementById('timelineProgress'),
             timelineHandle: document.getElementById('timelineHandle'),
-            fpsDisplay: document.getElementById('fpsDisplay')
+            fpsDisplay: document.getElementById('fpsDisplay'),
+            exportBVHBtn: document.getElementById('exportBVHBtn'),
+            targetUpAxis: document.getElementById('targetUpAxis'),
+            targetUnit: document.getElementById('targetUnit'),
+            rotationOrder: document.getElementById('rotationOrder'),
+            mappingType: document.getElementById('mappingType'),
+            validateBtn: document.getElementById('validateBtn'),
+            batchConvertBtn: document.getElementById('batchConvertBtn'),
+            batchFileInput: document.getElementById('batchFileInput'),
+            downloadLogBtn: document.getElementById('downloadLogBtn'),
+            formatCompareBtn: document.getElementById('formatCompareBtn')
         };
     }
 
@@ -194,6 +210,13 @@ export class App {
         this.elements.sideViewBtn.addEventListener('click', () => this.setSideView());
         this.elements.topViewBtn.addEventListener('click', () => this.setTopView());
         this.elements.autoRotate.addEventListener('change', (e) => this.setAutoRotate(e.target.checked));
+
+        this.elements.exportBVHBtn.addEventListener('click', () => this.exportBVH());
+        this.elements.validateBtn.addEventListener('click', () => this.validateConversion());
+        this.elements.batchConvertBtn.addEventListener('click', () => this.elements.batchFileInput.click());
+        this.elements.batchFileInput.addEventListener('change', (e) => this.handleBatchConversion(e));
+        this.elements.downloadLogBtn.addEventListener('click', () => this.downloadConversionLog());
+        this.elements.formatCompareBtn.addEventListener('click', () => this.openFormatComparePage());
 
         this.elements.playPauseBtn.addEventListener('click', () => this.togglePlay());
         this.elements.prevFrameBtn.addEventListener('click', () => this.prevFrame());
@@ -362,13 +385,27 @@ export class App {
         this._showLoading(`正在加载 ${file.name}...`);
 
         try {
-            const data = await this.csvLoader.loadFromFile(file, {
-                onProgress: (loaded, total) => {
-                    if (total) {
-                        this._updateLoadingProgress(loaded / total);
+            let data;
+            const isBVH = file.name.toLowerCase().endsWith('.bvh');
+            
+            if (isBVH) {
+                const result = await this.bvhLoader.loadFromFile(file, {
+                    targetUpAxis: this.elements.targetUpAxis.value,
+                    targetUnit: this.elements.targetUnit.value,
+                    rotationOrder: this.elements.rotationOrder.value,
+                    mappingType: this.elements.mappingType.value
+                });
+                data = result.animationData;
+                this.conversionLogger.info(`成功加载BVH文件: ${file.name}`);
+            } else {
+                data = await this.csvLoader.loadFromFile(file, {
+                    onProgress: (loaded, total) => {
+                        if (total) {
+                            this._updateLoadingProgress(loaded / total);
+                        }
                     }
-                }
-            });
+                });
+            }
 
             const player = viewport === 1 ? this.player1 : this.player2;
             player.setAnimationData(data);
@@ -391,12 +428,136 @@ export class App {
 
         } catch (error) {
             console.error('Error loading file:', error);
+            this.conversionLogger.error(`加载文件失败: ${file.name}`, error);
             alert(`加载文件失败: ${error.message}`);
         } finally {
             this._hideLoading();
         }
 
         event.target.value = '';
+    }
+
+    async exportBVH() {
+        if (!this.player1.isReady()) {
+            alert('请先加载数据');
+            return;
+        }
+
+        try {
+            const animationData = this.player1.getAnimationData();
+            const bvhContent = this.bvhLoader.exportToBVH(animationData, {
+                targetUpAxis: 'y-up',
+                targetUnit: 'centimeters',
+                rotationOrder: this.elements.rotationOrder.value,
+                mappingType: this.elements.mappingType.value,
+                name: this.elements.viewport1Title.textContent.replace('.csv', '').replace('.bvh', '')
+            });
+
+            const fileName = (this.elements.viewport1Title.textContent || 'output').replace('.csv', '').replace('.bvh', '') + '.bvh';
+            this._downloadFile(bvhContent, fileName, 'text/plain');
+            this.conversionLogger.success(`成功导出BVH文件: ${fileName}`);
+        } catch (error) {
+            console.error('Error exporting BVH:', error);
+            this.conversionLogger.error('导出BVH失败', error);
+            alert(`导出BVH失败: ${error.message}`);
+        }
+    }
+
+    async validateConversion() {
+        if (!this.player1.isReady()) {
+            alert('请先加载数据');
+            return;
+        }
+
+        this._showLoading('正在验证转换精度...');
+
+        try {
+            const animationData = this.player1.getAnimationData();
+            const result = this.conversionValidator.validateRoundTrip(animationData, {
+                rotationOrder: this.elements.rotationOrder.value,
+                mappingType: this.elements.mappingType.value
+            });
+
+            const report = this.conversionValidator.generateReport(result);
+            this.conversionLogger.info('转换验证完成');
+            this.conversionLogger.info(`\n${report}`);
+
+            if (result.passed) {
+                alert(`✅ 转换验证通过！\n最大位置误差: ${result.maxPositionError.toFixed(8)}\n阈值: 0.001`);
+            } else {
+                alert(`❌ 转换验证失败！\n最大位置误差: ${result.maxPositionError.toFixed(8)}\n阈值: 0.001\n请查看日志获取详细信息`);
+            }
+        } catch (error) {
+            console.error('Error validating conversion:', error);
+            this.conversionLogger.error('转换验证失败', error);
+            alert(`验证失败: ${error.message}`);
+        } finally {
+            this._hideLoading();
+        }
+    }
+
+    async handleBatchConversion(event) {
+        const files = Array.from(event.target.files);
+        if (files.length === 0) return;
+
+        const conversionType = confirm('点击确定转换CSV->BVH，点击取消转换BVH->CSV') ? 'csvToBvh' : 'bvhToCsv';
+        
+        this._showLoading(`正在批量转换 ${files.length} 个文件...`);
+
+        try {
+            this.batchConverter.setCSVLoader(this.csvLoader);
+            const results = await this.batchConverter.convertFiles(files, conversionType, {
+                targetUpAxis: this.elements.targetUpAxis.value,
+                targetUnit: this.elements.targetUnit.value,
+                rotationOrder: this.elements.rotationOrder.value,
+                mappingType: this.elements.mappingType.value,
+                continueOnError: true,
+                validateConversion: true
+            });
+
+            for (const result of results) {
+                if (result.success && result.output) {
+                    this._downloadFile(
+                        conversionType === 'csvToBvh' ? result.output.bvhContent : result.output.csvContent,
+                        result.output.fileName,
+                        'text/plain'
+                    );
+                }
+            }
+
+            const successCount = results.filter(r => r.success).length;
+            this.conversionLogger.info(`批量转换完成: ${successCount}/${files.length} 成功`);
+            alert(`批量转换完成: ${successCount}/${files.length} 成功\n请查看日志获取详细信息`);
+
+        } catch (error) {
+            console.error('Error in batch conversion:', error);
+            this.conversionLogger.error('批量转换失败', error);
+            alert(`批量转换失败: ${error.message}`);
+        } finally {
+            this._hideLoading();
+        }
+
+        event.target.value = '';
+    }
+
+    downloadConversionLog() {
+        this.conversionLogger.downloadLog();
+    }
+
+    openFormatComparePage() {
+        window.open('compare.html', '_blank');
+    }
+
+    _downloadFile(content, fileName, type) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     _generateSampleData(cat, action) {
