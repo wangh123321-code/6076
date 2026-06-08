@@ -260,7 +260,7 @@ export class App {
     }
 
     _populateDataSelectors() {
-        const cats = ['CAT001', 'CAT002', 'CAT003', 'CAT004', 'CAT005'];
+        const cats = ['猫咪_001', '猫咪_002', '猫咪_003', '猫咪_004', '猫咪_005'];
         const actions = ['行走', '奔跑', '跳跃', '打滚', '坐下', '站立', '玩耍', '睡觉'];
         
         const populateSelect = (select, options) => {
@@ -291,9 +291,7 @@ export class App {
         const action = actionSelect.value;
 
         const files = [
-            `${cat}_${action}_01.csv`,
-            `${cat}_${action}_02.csv`,
-            `${cat}_${action}_03.csv`
+            `${cat}_${action}.csv`
         ];
 
         fileSelect.innerHTML = '';
@@ -315,7 +313,7 @@ export class App {
 
         try {
             let data;
-            const filePath = `data/sample/${catSelect.value}/${actionSelect.value}/${fileName}`;
+            const filePath = `data/sample/${fileName}`;
             
             try {
                 data = await this.csvLoader.loadFromURL(filePath, {
@@ -326,6 +324,7 @@ export class App {
                     }
                 });
             } catch (e) {
+                console.warn(`加载CSV文件失败: ${filePath}, 错误: ${e.message}, 将使用模拟数据`);
                 data = this._generateSampleData(catSelect.value, actionSelect.value);
             }
 

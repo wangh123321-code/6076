@@ -33,6 +33,7 @@ const server = http.createServer((req, res) => {
 
     fs.stat(filePath, (err, stats) => {
         if (err) {
+            console.log(`[404] ${filePath}`);
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('404 Not Found');
             return;
@@ -42,6 +43,7 @@ const server = http.createServer((req, res) => {
             const indexPath = path.join(filePath, 'index.html');
             fs.stat(indexPath, (err, stats) => {
                 if (err) {
+                    console.log(`[404] ${indexPath}`);
                     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
                     res.end('404 Not Found');
                     return;
@@ -67,10 +69,13 @@ function serveFile(filePath, res) {
         'Access-Control-Allow-Origin': '*'
     });
 
+    console.log(`[200] ${filePath}`);
+
     const stream = fs.createReadStream(filePath);
     stream.pipe(res);
 
     stream.on('error', (err) => {
+        console.error(`[500] ${filePath} - ${err.message}`);
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('500 Internal Server Error');
     });
